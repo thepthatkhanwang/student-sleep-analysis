@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Social Impact: การวิเคราะห์พฤติกรรมการนอนของนิสิต</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  fontFamily: { sans: ['"IBM Plex Sans Thai"', 'system-ui', 'sans-serif'] },
+  colors: { ink: '#0a1020', panel: '#101a30', edge: '#1f2d4d', sky: '#38bdf8', amber: '#fbbf24', mute: '#8da2c8' }
+}}};
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { background: #0a1020; }
+  .night { background: radial-gradient(900px 400px at 85% -10%, rgba(56,189,248,.18), transparent 60%), #0a1020; }
+  .panel { background: #101a30; border: 1px solid #1f2d4d; border-radius: 14px; }
+  .chart-box { position: relative; height: 300px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  /* Light mode overrides */
+  [data-theme=light] body { background: #f1f5f9; color: #1e293b; }
+  [data-theme=light] .night { background: radial-gradient(900px 400px at 85% -10%, rgba(56,189,248,.28), transparent 60%), #e8eef7; }
+  [data-theme=light] .panel { background: #fff; border-color: #cbd5e1; }
+  [data-theme=light] .border-edge { border-color: #cbd5e1; }
+  [data-theme=light] .text-white, [data-theme=light] .hover\:text-white:hover { color: #0f172a; }
+  [data-theme=light] .text-slate-100 { color: #0f172a; }
+  [data-theme=light] .text-slate-200 { color: #1e293b; }
+  [data-theme=light] .text-slate-300 { color: #334155; }
+  [data-theme=light] .text-mute { color: #475569; }
+  [data-theme=light] .text-sky { color: #0369a1; }
+  [data-theme=light] .text-amber { color: #b45309; }
+  [data-theme=light] .border-amber { border-color: #b45309; }
+  [data-theme=light] .border-sky { border-color: #0369a1; }
+  input[type=number] { background: transparent; }
+  /* Interactive tabs */
+  .tab { position: relative; overflow: hidden; text-align: center; cursor: pointer; background: #101a30; border: 1px solid #1f2d4d; border-radius: 14px; transition: border-color .2s, background .2s, transform .2s, box-shadow .2s; }
+  .tab::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #38bdf8; transform: scaleX(0); transition: transform .3s ease; }
+  .tab:hover { border-color: #38bdf8; transform: translateY(-2px); }
+  .tab:active { transform: translateY(0) scale(.98); }
+  .tab[aria-selected=true] { border-color: #38bdf8; background: rgba(56,189,248,.14); box-shadow: 0 10px 26px -14px rgba(56,189,248,.7); }
+  .tab[aria-selected=true]::after { transform: scaleX(1); }
+  .tab[aria-selected=true] .tab-t { color: #fff; }
+  .tabpanel[hidden] { display: none !important; }
+  .tabpanel.on { animation: tabIn .4s cubic-bezier(.2,.7,.2,1); }
+  @keyframes tabIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .tabpanel.on { animation: none; } .tab, .tab::after { transition: none; } }
+  [data-theme=light] .tab { background: #fff; border-color: #cbd5e1; }
+  [data-theme=light] .tab:hover { border-color: #0369a1; }
+  [data-theme=light] .tab::after { background: #0369a1; }
+  [data-theme=light] .tab[aria-selected=true] { background: #e0f2fe; border-color: #0369a1; }
+  [data-theme=light] .tab[aria-selected=true] .tab-t { color: #0c4a6e; }
+</style>
+</head>
+<body class="font-sans text-slate-200 antialiased">
+
+<button id="themeBtn" type="button" class="fixed top-4 right-4 z-50 panel px-3 py-2 text-sm text-slate-100 hover:border-sky" aria-label="สลับโหมดมืด/สว่าง" aria-pressed="false">
+  <span id="themeIcon" aria-hidden="true">☀</span> <span id="themeTxt" class="hidden sm:inline">โหมดสว่าง</span>
+</button>
+
+<header class="night border-b border-edge">
+  <nav class="max-w-6xl mx-auto px-5 pr-20 py-4 flex items-center justify-between text-sm text-mute">
+    <span class="font-semibold text-white">Sleep × Score</span>
+    <div class="hidden sm:flex gap-6">
+      <a href="#overview" class="hover:text-white">ภาพรวม</a>
+      <a href="#charts" class="hover:text-white">กราฟ</a>
+      <a href="#tool" class="hover:text-white">ประเมินตัวเอง</a>
+      <a href="#insights" class="hover:text-white">Insight</a>
+    </div>
+  </nav>
+  <div class="max-w-6xl mx-auto px-5 pt-14 pb-16 md:pt-20 md:pb-24">
+    <p class="text-sky text-sm mb-4">Data Visualization Project</p>
+    <h1 class="text-3xl sm:text-5xl font-bold text-white leading-tight max-w-3xl">การวิเคราะห์พฤติกรรมการนอนของนิสิต</h1>
+    <p class="mt-3 text-lg text-mute">Student Social Impact: Sleep Habits and Academic Performance</p>
+    <p class="mt-6 text-xl sm:text-2xl text-slate-100 font-medium">Data <span class="text-sky">→</span> Insight <span class="text-sky">→</span> Decision</p>
+    <p class="text-mute mt-1">จากข้อมูลการนอน สู่การตัดสินใจปรับพฤติกรรม</p>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-5 py-12 space-y-16">
+
+  <!-- Overview -->
+  <section id="overview" class="grid md:grid-cols-5 gap-6">
+    <div class="md:col-span-2">
+      <h2 class="text-2xl font-semibold text-white">โจทย์ของโปรเจกต์</h2>
+      <p class="mt-3 text-mute leading-relaxed">กลุ่มเป้าหมายคือ <span class="text-slate-100">นิสิตที่นอนไม่เพียงพอ</span> (Students who experience insufficient sleep) เราใช้ข้อมูลเพื่อดูว่าการนอนเกี่ยวข้องกับผลการเรียนและพฤติกรรมอื่นอย่างไร</p>
+    </div>
+    <div class="md:col-span-3 panel p-6">
+      <h3 class="font-semibold text-white mb-4">คำถามหลัก</h3>
+      <ul class="space-y-3">
+        <li class="flex gap-3"><span class="text-sky font-semibold">1</span>นิสิตนอนกี่ชั่วโมง?</li>
+        <li class="flex gap-3"><span class="text-sky font-semibold">2</span>ชั่วโมงนอนสัมพันธ์กับคะแนนสอบหรือไม่?</li>
+        <li class="flex gap-3"><span class="text-sky font-semibold">3</span>Social Media สัมพันธ์กับชั่วโมงนอนหรือไม่?</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- KPIs -->
+  <section class="grid sm:grid-cols-3 gap-4" aria-label="ตัวเลขสำคัญ">
+    <div class="panel p-6">
+      <p class="text-mute text-sm">ขนาดข้อมูล</p>
+      <p class="text-4xl font-bold text-white mt-2" data-count="1000" data-fmt="int">1,000</p>
+      <p class="text-sm text-mute mt-1">records · Kaggle: student_habits_performance</p>
+    </div>
+    <div class="panel p-6">
+      <p class="text-mute text-sm">นอนเฉลี่ย</p>
+      <p class="text-4xl font-bold text-sky mt-2"><span data-count="6.47" data-fmt="dec">6.47</span> <span class="text-lg font-medium text-mute">ชม./คืน</span></p>
+      <p class="text-sm text-mute mt-1">ต่ำกว่าคำแนะนำ 7–9 ชม. เล็กน้อย</p>
+    </div>
+    <div class="panel p-6">
+      <p class="text-mute text-sm">นอนน้อยกว่า 6 ชั่วโมง</p>
+      <p class="text-4xl font-bold text-amber mt-2"><span data-count="34.3" data-fmt="dec1">34.3</span>%</p>
+      <p class="text-sm text-mute mt-1">ประมาณ 1 ใน 3 ของนิสิตทั้งหมด</p>
+    </div>
+  </section>
+
+  <!-- Charts -->
+  <section id="charts">
+    <h2 class="text-2xl font-semibold text-white">ข้อมูลบอกอะไรเรา</h2>
+    <div class="mt-6 grid lg:grid-cols-2 gap-6">
+
+      <article class="panel p-5">
+        <h3 class="font-semibold text-white">1. การกระจายของชั่วโมงนอน</h3>
+        <p class="text-sm text-mute mb-4">ส่วนใหญ่นอน 6–7 ชั่วโมง เส้นประคือเกณฑ์ 6 ชั่วโมง</p>
+        <div class="chart-box"><canvas id="c1" role="img" aria-label="Histogram ของชั่วโมงนอน"></canvas></div>
+      </article>
+
+      <article class="panel p-5">
+        <h3 class="font-semibold text-white">2. คะแนนสอบเฉลี่ยตามช่วงเวลานอน</h3>
+        <p class="text-sm text-mute mb-4">กลุ่มที่นอน 6–8 ชั่วโมงได้คะแนนเฉลี่ยสูงสุด ราว 73.0</p>
+        <div class="chart-box"><canvas id="c2" role="img" aria-label="แท่งคะแนนเฉลี่ยตามช่วงเวลานอน"></canvas></div>
+      </article>
+
+      <article class="panel p-5">
+        <h3 class="font-semibold text-white">3. Social Media vs ชั่วโมงนอน</h3>
+        <p class="text-sm text-mute mb-4">สหสัมพันธ์ r = −0.023 แทบไม่มีความสัมพันธ์เชิงเส้น</p>
+        <div class="chart-box"><canvas id="c3" role="img" aria-label="Scatter ของ Social Media กับชั่วโมงนอน"></canvas></div>
+      </article>
+
+      <article class="panel p-5">
+        <h3 class="font-semibold text-white">4. เวลาอ่านหนังสือ vs คะแนนสอบ</h3>
+        <p class="text-sm text-mute mb-4">อ่านมากขึ้น คะแนนมีแนวโน้มสูงขึ้นอย่างชัดเจน</p>
+        <div class="chart-box"><canvas id="c4" role="img" aria-label="Scatter ของเวลาอ่านหนังสือกับคะแนนสอบ"></canvas></div>
+      </article>
+    </div>
+    <p class="text-xs text-mute mt-4">หมายเหตุ: ค่าสถิติหลัก (1,000 records, 6.47 ชม., 34.3%, 73.0, r = −0.023) มาจากการวิเคราะห์ของโปรเจกต์ ส่วนค่าในกราฟแต่ละจุดและค่าเฉลี่ยของกลุ่มอื่นเป็นข้อมูลจำลองเพื่อแสดงรูปแบบ แทนที่ด้วยข้อมูลจริงจาก CSV ได้ที่ส่วน DATA ในโค้ด</p>
+  </section>
+
+  <!-- Self-assessment tool -->
+  <section id="tool">
+    <h2 class="text-2xl font-semibold text-white">เครื่องคำนวณและประเมินพฤติกรรมการนอน</h2>
+    <p class="mt-2 text-mute">กรอกหรือเลื่อนสไลเดอร์ แล้วดูว่าพฤติกรรมของคุณอยู่ตรงไหนเมื่อเทียบกับรูปแบบในข้อมูลของโปรเจกต์</p>
+    <div class="mt-6 grid lg:grid-cols-2 gap-6">
+      <form id="toolForm" class="panel p-6 space-y-7" onsubmit="return false">
+        <div>
+          <div class="flex justify-between items-center gap-3">
+            <label for="sleepIn" class="font-medium text-white">ชั่วโมงนอนต่อคืน</label>
+            <span class="text-sky font-semibold"><input id="sleepNum" type="number" min="0" max="10" step="0.5" value="00" aria-label="ชั่วโมงนอน" class="w-20 border border-edge rounded-lg px-2 py-1 text-right text-white"> ชม.</span>
+          </div>
+          <input id="sleepIn" type="range" min="0" max="10" step="0.5" value="0" class="w-full mt-3" style="accent-color:#38bdf8">
+          <div class="h-2 rounded-full mt-2" style="background:linear-gradient(90deg,rgba(251,191,36,.65) 0 60%,rgba(56,189,248,.75) 60% 80%,rgba(141,162,200,.4) 80%)"></div>
+          <div class="flex text-xs text-mute mt-1"><span style="width:60%">น้อยกว่า 6</span><span style="width:20%">6–8 (ช่วงที่คะแนนสูงสุด)</span><span>มากกว่า 8</span></div>
+        </div>
+        <div>
+          <div class="flex justify-between items-center gap-3">
+            <label for="studyIn" class="font-medium text-white">ชั่วโมงอ่านหนังสือต่อวัน</label>
+            <span class="text-sky font-semibold"><input id="studyNum" type="number" min="0" max="10" step="0.5" value="00" aria-label="ชั่วโมงอ่านหนังสือ" class="w-20 border border-edge rounded-lg px-2 py-1 text-right text-white"> ชม.</span>
+          </div>
+          <input id="studyIn" type="range" min="0" max="10" step="0.5" value="0" class="w-full mt-3" style="accent-color:#38bdf8">
+        </div>
+        <button id="evalBtn" type="button" class="w-full rounded-xl bg-sky text-slate-900 font-semibold py-3 hover:opacity-90">ประเมินผล</button>
+      </form>
+      <div class="panel p-6" id="result" aria-live="polite">
+        <div id="resEmpty"><p class="text-sm text-mute">คะแนนสอบโดยประมาณ</p><p class="text-5xl font-bold text-sky mt-1">00</p><p id="resHint" class="text-mute mt-3">เลือกค่าทางซ้าย แล้วกด “ประเมินผล” เพื่อดูคะแนนโดยประมาณและคำแนะนำ</p></div>
+        <div id="resBody" class="hidden">
+          <p class="text-sm text-mute">คะแนนสอบโดยประมาณ</p>
+          <p class="text-5xl font-bold text-sky mt-1"><span id="rScore"></span> <span class="text-base font-medium text-mute">± 5</span></p>
+          <p id="rBadge" class="inline-block mt-3 text-sm px-3 py-1 rounded-full border"></p>
+          <ul id="rTips" class="mt-4 space-y-2 list-disc pl-5 text-slate-300 marker:text-sky"></ul>
+          <p class="text-xs text-mute mt-4">ค่านี้คำนวณจากรูปแบบของข้อมูลในโปรเจกต์ (คะแนนเฉลี่ยตามช่วงนอน + แนวโน้มเวลาอ่าน) ใช้เพื่อประกอบการตัดสินใจเท่านั้น ไม่ใช่การทำนายรายบุคคล</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Insights -->
+  <section id="insights">
+    <h2 class="text-2xl font-semibold text-white">จากข้อมูลสู่การตัดสินใจ</h2>
+    <div role="tablist" aria-label="Data → Visualization → Insight → Decision" class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <button type="button" role="tab" id="tabbtn-data" aria-controls="tab-data" aria-selected="true" class="tab py-4 px-3"><span class="tab-t block text-sky font-semibold">Data</span><span class="block text-xs text-mute mt-1">พฤติกรรมการนอน 1,000 คน</span></button>
+      <button type="button" role="tab" id="tabbtn-viz" aria-controls="tab-viz" aria-selected="false" tabindex="-1" class="tab py-4 px-3"><span class="tab-t block text-sky font-semibold">Visualization</span><span class="block text-xs text-mute mt-1">กราฟกระจาย แท่ง และ scatter</span></button>
+      <button type="button" role="tab" id="tabbtn-insight" aria-controls="tab-insight" aria-selected="false" tabindex="-1" class="tab py-4 px-3"><span class="tab-t block text-sky font-semibold">Insight</span><span class="block text-xs text-mute mt-1">6–8 ชม. คะแนนสูงสุด</span></button>
+      <button type="button" role="tab" id="tabbtn-decision" aria-controls="tab-decision" aria-selected="false" tabindex="-1" class="tab py-4 px-3"><span class="tab-t block text-sky font-semibold">Decision</span><span class="block text-xs text-mute mt-1">ปรับเวลานอนและเวลาอ่าน</span></button>
+    </div>
+
+    <div id="tab-data" role="tabpanel" aria-labelledby="tabbtn-data" class="tabpanel on panel p-6 mt-6">
+      <h3 class="font-semibold text-white">Data: ข้อมูลที่ใช้</h3>
+      <div class="mt-4 grid md:grid-cols-2 gap-6">
+        <ul class="space-y-3 text-slate-300 list-disc pl-5 marker:text-sky">
+          <li>ขนาดชุดข้อมูล <span class="text-white font-medium">1,000 records</span> (นิสิต 1,000 คน)</li>
+          <li>แหล่งที่มา: Kaggle ชุดข้อมูล <span class="text-white font-medium">student_habits_performance</span></li>
+          <li>เป็นข้อมูลพฤติกรรมรายบุคคล แต่ละแถวคือนิสิต 1 คน</li>
+        </ul>
+        <div>
+          <p class="text-sm text-mute mb-2">ตัวแปรหลักที่ใช้ในโปรเจกต์</p>
+          <div class="flex flex-wrap gap-2 text-sm">
+            <span class="tag border border-edge rounded-full px-3 py-1">sleep_hours · ชั่วโมงนอน</span>
+            <span class="border border-edge rounded-full px-3 py-1">exam_score · คะแนนสอบ</span>
+            <span class="border border-edge rounded-full px-3 py-1">social_media_hours · เวลาใช้ Social Media</span>
+            <span class="border border-edge rounded-full px-3 py-1">study_hours_per_day · เวลาอ่านหนังสือ</span>
+          </div>
+          <p class="text-xs text-mute mt-3">ชุดข้อมูลยังมีตัวแปรอื่น เช่น อายุ เพศ การเข้าเรียน การออกกำลังกาย แต่ไม่ได้ใช้ในกราฟชุดนี้</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-viz" role="tabpanel" aria-labelledby="tabbtn-viz" class="tabpanel panel p-6 mt-6" hidden>
+      <h3 class="font-semibold text-white">Visualization: เลือกกราฟให้ตรงกับคำถาม</h3>
+      <div class="mt-4 grid sm:grid-cols-2 gap-4 text-sm">
+        <div class="border border-edge rounded-xl p-4"><p class="text-sky font-semibold">Histogram</p><p class="text-slate-300 mt-1">ดูการกระจายชั่วโมงนอน ตอบว่านิสิตนอนกี่ชั่วโมง พร้อมเส้นเกณฑ์ 6 ชม.</p></div>
+        <div class="border border-edge rounded-xl p-4"><p class="text-sky font-semibold">Bar Chart</p><p class="text-slate-300 mt-1">เปรียบคะแนนสอบเฉลี่ยใน 4 ช่วงเวลานอน (&lt;6, 6–7, 7–8, &gt;8)</p></div>
+        <div class="border border-edge rounded-xl p-4"><p class="text-sky font-semibold">Scatter Plot: Social Media × การนอน</p><p class="text-slate-300 mt-1">ตรวจว่าใช้ Social Media มากแล้วนอนน้อยลงหรือไม่ (r = −0.023)</p></div>
+        <div class="border border-edge rounded-xl p-4"><p class="text-sky font-semibold">Scatter Plot: เวลาอ่าน × คะแนนสอบ</p><p class="text-slate-300 mt-1">ดูแนวโน้มว่าอ่านมากขึ้นแล้วคะแนนสูงขึ้นหรือไม่</p></div>
+      </div>
+      <p class="mt-4 text-sm"><a href="#charts" class="text-sky underline underline-offset-4">ไปดูกราฟทั้ง 4 ตัว</a></p>
+    </div>
+
+    <div id="tab-insight" role="tabpanel" aria-labelledby="tabbtn-insight" class="tabpanel panel p-6 mt-6" hidden>
+      <h3 class="font-semibold text-white">Insight: สิ่งที่ข้อมูลบอกเรา</h3>
+      <ul class="mt-4 space-y-3 text-slate-300 list-disc pl-5 marker:text-sky">
+        <li>นิสิตนอนเฉลี่ย <span class="text-white font-medium">6.47 ชม./คืน</span> และ <span class="text-white font-medium">34.3%</span> นอนน้อยกว่า 6 ชม.</li>
+        <li>กลุ่มที่นอน <span class="text-white font-medium">6–8 ชม.</span> มีคะแนนสอบเฉลี่ยสูงสุด ราว 73.0</li>
+        <li>Social Media กับชั่วโมงนอนแทบไม่สัมพันธ์กัน (r = −0.023) จึงไม่มีหลักฐานตรงว่า Social Media ทำให้นอนไม่พอ</li>
+        <li>เวลาอ่านหนังสือมากขึ้นสัมพันธ์กับคะแนนสอบที่สูงขึ้นอย่างชัดเจน (ความสัมพันธ์เชิงบวก)</li>
+      </ul>
+    </div>
+
+    <div id="tab-decision" role="tabpanel" aria-labelledby="tabbtn-decision" class="tabpanel mt-6 grid md:grid-cols-2 gap-6" hidden>
+      <div class="panel p-6">
+        <h3 class="font-semibold text-white">สิ่งที่นิสิตทำได้</h3>
+        <ul class="mt-3 space-y-3 text-slate-300 list-disc pl-5 marker:text-sky">
+          <li>บันทึกชั่วโมงนอนทุกคืน แล้วตั้งเป้าอย่างน้อย 6–8 ชั่วโมง</li>
+          <li>สมดุลเวลาอ่านหนังสือกับการพักผ่อน เพราะอ่านมากช่วยคะแนน แต่ไม่ควรแลกกับการอดนอน</li>
+          <li>อย่าโทษ Social Media อย่างเดียว ข้อมูลนี้ไม่พบความสัมพันธ์ตรง ให้ดูนิสัยการนอนโดยรวมด้วย</li>
+        </ul>
+      </div>
+      <div class="panel p-6">
+        <h3 class="font-semibold text-white">ข้อจำกัดของการวิเคราะห์</h3>
+        <ul class="mt-3 space-y-3 text-slate-300 list-disc pl-5 marker:text-amber">
+          <li>ขนาดตัวอย่าง 1,000 records อาจแทนนิสิตทั้งหมดไม่ได้</li>
+          <li>ไม่มีข้อมูลเวลาเข้านอนที่แน่นอน จึงวัดคุณภาพการนอนไม่ได้</li>
+          <li>ความสัมพันธ์ ไม่เท่ากับ เหตุและผล (correlation ≠ causation)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="border-t border-edge py-8 text-center text-sm text-mute px-5">
+  Data Visualization Project · Dataset: Kaggle student_habits_performance
+</footer>
+
+<script>
+/* ---------- DATA (replace with real CSV values if available) ---------- */
+const HIST = { labels: ['3–4','4–5','5–6','6–7','7–8','8–9','9–10'], counts: [22, 92, 229, 310, 237, 80, 30] };
+const AVG  = { labels: ['< 6','6–7','7–8','> 8'], scores: [68.9, 72.9, 73.1, 70.4] };
+
+// seeded random so charts look the same on every load
+let seed = 42;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const norm = (m, s) => m + s * Math.sqrt(-2 * Math.log(rnd() || 1e-9)) * Math.cos(2 * Math.PI * rnd());
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const N = 220;
+const SOCIAL = Array.from({length: N}, () => ({ x: +(rnd() * 8).toFixed(1), y: +clamp(norm(6.47, 1.2), 3, 10).toFixed(1) }));
+const STUDY  = Array.from({length: N}, () => { const h = clamp(norm(3.5, 1.7), 0, 8); return { x: +h.toFixed(1), y: +clamp(norm(38 + 6.5 * h, 7), 20, 100).toFixed(1) }; });
+
+/* ---------- Chart setup ---------- */
+Chart.defaults.font.family = '"IBM Plex Sans Thai", system-ui, sans-serif';
+Chart.defaults.color = '#8da2c8';
+Chart.defaults.borderColor = '#1f2d4d';
+Object.assign(Chart.defaults.plugins.tooltip, { padding: 12, cornerRadius: 10, displayColors: false, bodySpacing: 6, backgroundColor: 'rgba(8,13,26,.96)', borderColor: '#38bdf8', borderWidth: 1, titleColor: '#ffffff', bodyColor: '#cbd5e1', footerColor: '#fbbf24', titleFont: { weight: '600', size: 13 } });
+const SKY = '#38bdf8', AMBER = '#fbbf24', DIM = 'rgba(56,189,248,.35)';
+const axis = (t, extra = {}) => ({ title: { display: true, text: t }, ...extra });
+const base = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } };
+
+// dashed benchmark line between the 5–6 and 6–7 bins (x = 6 hours)
+const benchmark = { id: 'benchmark', afterDatasetsDraw(chart) {
+  const { ctx, chartArea: a, scales: { x } } = chart;
+  const px = (x.getPixelForValue(2) + x.getPixelForValue(3)) / 2;
+  ctx.save(); ctx.setLineDash([6, 5]); ctx.strokeStyle = AMBER; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke();
+  ctx.setLineDash([]); ctx.fillStyle = AMBER; ctx.textAlign = 'left';
+  ctx.fillText('6 ชม.', px + 6, a.top + 12); ctx.restore();
+}};
+
+new Chart('c1', { type: 'bar', plugins: [benchmark], data: { labels: HIST.labels,
+  datasets: [{ data: HIST.counts, backgroundColor: HIST.labels.map((_, i) => i < 3 ? 'rgba(251,191,36,.55)' : DIM), borderColor: SKY, borderWidth: 1, categoryPercentage: 1, barPercentage: 1 }] },
+  options: { ...base, plugins: { legend: { display: false }, tooltip: { callbacks: {
+    title: i => 'นอน ' + i[0].label + ' ชั่วโมง/คืน',
+    label: c => ` จำนวน ${c.parsed.y} คน (${(c.parsed.y / 10).toFixed(1)}% ของทั้งหมด)`,
+    afterLabel: c => c.dataIndex < 3 ? ' กลุ่มนอนน้อยกว่า 6 ชม.' : ' กลุ่มนอนตั้งแต่ 6 ชม. ขึ้นไป' } } },
+    scales: { x: axis('ชั่วโมงนอน'), y: axis('จำนวนนิสิต') } } });
+
+new Chart('c2', { type: 'bar', data: { labels: AVG.labels,
+  datasets: [{ data: AVG.scores, backgroundColor: [DIM, SKY, SKY, DIM], borderRadius: 6 }] },
+  options: { ...base, plugins: { legend: { display: false }, tooltip: { callbacks: {
+      title: i => 'นอน ' + i[0].label + ' ชั่วโมง/คืน',
+      label: c => ` คะแนนสอบเฉลี่ย ${c.parsed.y}`,
+      afterLabel: c => c.parsed.y >= 72.9 ? ' กลุ่มคะแนนสูงสุด (6–8 ชม.)' : ` ต่ำกว่ากลุ่มสูงสุด ${(73.1 - c.parsed.y).toFixed(1)} คะแนน` } } },
+    scales: { x: axis('ชั่วโมงนอนต่อคืน'), y: axis('คะแนนสอบเฉลี่ย', { min: 60, max: 80 }) } } });
+
+const dots = (data, color) => ({ type: 'scatter', data: { datasets: [{ data, backgroundColor: color, pointRadius: 3, pointHoverRadius: 8, pointHoverBorderWidth: 2, pointHoverBorderColor: '#ffffff' }] } });
+
+new Chart('c3', { ...dots(SOCIAL, 'rgba(56,189,248,.55)'),
+  options: { ...base, plugins: { legend: { display: false }, tooltip: { callbacks: {
+    title: () => 'นิสิต 1 คน (จุดตัวอย่าง)',
+    label: c => ` Social Media: ${c.parsed.x} ชม./วัน`,
+    afterLabel: c => ` ชั่วโมงนอน: ${c.parsed.y} ชม./คืน`,
+    footer: i => i[0].parsed.y < 6 ? 'นอนน้อยกว่า 6 ชม.' : 'นอนอย่างน้อย 6 ชม.' } } },
+    scales: { x: axis('Social Media (ชม./วัน)'), y: axis('ชั่วโมงนอน', { min: 3, max: 10 }) } } });
+
+new Chart('c4', { ...dots(STUDY, 'rgba(251,191,36,.55)'),
+  options: { ...base, plugins: { legend: { display: false }, tooltip: { callbacks: {
+    title: () => 'นิสิต 1 คน (จุดตัวอย่าง)',
+    label: c => ` อ่านหนังสือ: ${c.parsed.x} ชม./วัน`,
+    afterLabel: c => ` คะแนนสอบ: ${c.parsed.y}`,
+    footer: i => `${i[0].parsed.y >= 73 ? 'สูงกว่า' : 'ต่ำกว่า'}ค่าอ้างอิง 73.0 อยู่ ${Math.abs(i[0].parsed.y - 73).toFixed(1)} คะแนน` } } },
+    scales: { x: axis('เวลาอ่านหนังสือ (ชม./วัน)'), y: axis('คะแนนสอบ', { min: 20, max: 100 }) } } });
+
+/* ---------- Self-assessment tool ---------- */
+const $ = id => document.getElementById(id);
+const PTS = [[3, 62], [4, 64.5], [5.5, 68.9], [6.5, 72.9], [7.5, 73.1], [9, 70.4], [10, 68.5]];
+const sleepBase = s => {
+  if (s <= PTS[0][0]) return PTS[0][1];
+  for (let i = 1; i < PTS.length; i++) {
+    const [a, b] = PTS[i - 1], [c, d] = PTS[i];
+    if (s <= c) return b + (d - b) * (s - a) / (c - a);
+  }
+  return PTS[PTS.length - 1][1];
+};
+const eff = d => 5 * Math.min(d, 6) + 2 * Math.max(0, d - 6);   // diminishing returns after 6 h
+const predict = (s, d) => clamp(sleepBase(s) + eff(d) - eff(3.5), 0, 100);
+
+const link = (r, n) => {
+  const R = $(r), N = $(n);
+  R.addEventListener('input', () => { N.value = R.value; });
+  N.addEventListener('change', () => { const v = clamp(parseFloat(N.value) || +R.min, +R.min, +R.max); N.value = v; R.value = v; });
+};
+link('sleepIn', 'sleepNum'); link('studyIn', 'studyNum');
+
+$('evalBtn').addEventListener('click', () => {
+  const s = +$('sleepIn').value, d = +$('studyIn').value;
+  if (s < 3) { $('resHint').textContent = 'กำหนดชั่วโมงนอนอย่างน้อย 3 ชม. ก่อนกดประเมินผล'; return; }
+  const score = predict(s, d);
+  const tips = [];
+  let tone = 'sky', badge;
+  if (s < 6) {
+    tone = 'amber'; badge = 'นอนน้อยกว่า 6 ชม. (กลุ่มเดียวกับ 34.3% ของนิสิต)';
+    tips.push('กลุ่มที่นอนน้อยกว่า 6 ชม. มีคะแนนเฉลี่ยราว 68.9 ต่ำกว่ากลุ่ม 6–8 ชม. ประมาณ 4 คะแนน');
+    tips.push('ลองเลื่อนเวลานอนให้เร็วขึ้นทีละ 30 นาที จนถึงอย่างน้อย 6 ชม. ต่อคืน');
+  } else if (s <= 8) {
+    badge = 'อยู่ในช่วงนอนที่คะแนนเฉลี่ยสูงสุด (6–8 ชม.)';
+    tips.push('ชั่วโมงนอนของคุณอยู่ในช่วงที่ข้อมูลพบคะแนนเฉลี่ยสูงสุดราว 73 รักษาจังหวะนี้ไว้');
+  } else {
+    tone = 'amber'; badge = 'นอนมากกว่า 8 ชม.';
+    tips.push('กลุ่มที่นอนมากกว่า 8 ชม. มีคะแนนเฉลี่ยลดลงเล็กน้อย (ราว 70.4) ข้อมูลไม่ได้บอกสาเหตุ ลองดูคุณภาพการนอนและตารางเวลาร่วมด้วย');
+  }
+  if (d < 2) tips.push('เวลาอ่านหนังสือค่อนข้างน้อย เพิ่มวันละ 1 ชม. มีแนวโน้มช่วยให้คะแนนสูงขึ้น');
+  else if (d > 6) tips.push('อ่านเกิน 6 ชม./วัน ผลตอบแทนต่อคะแนนเริ่มน้อยลง ให้เวลาพักและนอนมากขึ้นอาจคุ้มกว่า');
+  else tips.push('เวลาอ่านหนังสืออยู่ในระดับที่สมเหตุสมผล ข้อมูลพบว่ายิ่งอ่านมากคะแนนยิ่งสูงขึ้น');
+  if (d >= 6 && s < 6) tips.push('อ่านหนักแต่นอนน้อย ระวังแลกการนอนกับเวลาอ่านมากเกินไป ลองลดเวลาอ่านช่วงดึกแล้วเข้านอนเร็วขึ้น');
+  if (s < 7) { const g = predict(7, d) - score; if (g > 0.5) tips.push(`ถ้านอนเพิ่มเป็น 7 ชม. คาดว่าคะแนนเพิ่มขึ้นประมาณ ${g.toFixed(1)} คะแนน`); }
+  tips.push('Social Media ไม่พบความสัมพันธ์ตรงกับชั่วโมงนอน (r = −0.023) จึงควรดูเวลาเข้านอนจริงของตัวเองด้วย');
+
+  $('rScore').textContent = score.toFixed(1);
+  const b = $('rBadge');
+  b.textContent = badge;
+  b.className = `inline-block mt-3 text-sm px-3 py-1 rounded-full border ${tone === 'amber' ? 'border-amber text-amber' : 'border-sky text-sky'}`;
+  const ul = $('rTips'); ul.replaceChildren();
+  tips.forEach(t => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+  $('resEmpty').classList.add('hidden');
+  $('resBody').classList.remove('hidden');
+});
+
+/* ---------- Dark / Light mode ---------- */
+const THEME = { dark: { text: '#8da2c8', grid: '#1f2d4d' }, light: { text: '#475569', grid: '#dbe3ee' } };
+function applyTheme(m) {
+  const t = THEME[m];
+  document.documentElement.dataset.theme = m;
+  Chart.defaults.color = t.text; Chart.defaults.borderColor = t.grid;
+  Object.values(Chart.instances).forEach(ch => {
+    const sc = ch.config.options.scales || {};
+    for (const k in sc) {
+      sc[k].ticks = Object.assign({}, sc[k].ticks, { color: t.text });
+      sc[k].grid = Object.assign({}, sc[k].grid, { color: t.grid });
+      sc[k].title = Object.assign({}, sc[k].title, { color: t.text });
+    }
+    ch.update('none');
+  });
+  $('themeIcon').textContent = m === 'dark' ? '☀' : '☾';
+  $('themeTxt').textContent = m === 'dark' ? 'โหมดสว่าง' : 'โหมดมืด';
+  $('themeBtn').setAttribute('aria-pressed', String(m === 'light'));
+}
+let mode = 'dark';
+try { mode = localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'); } catch (e) {}
+applyTheme(mode);
+$('themeBtn').addEventListener('click', () => {
+  mode = mode === 'dark' ? 'light' : 'dark';
+  applyTheme(mode);
+  try { localStorage.setItem('theme', mode); } catch (e) {}
+});
+
+/* ---------- Interactive tabs ---------- */
+const tabs = [...document.querySelectorAll('[role=tab]')];
+function selectTab(btn, focus) {
+  tabs.forEach(t => {
+    const on = t === btn, p = $(t.getAttribute('aria-controls'));
+    t.setAttribute('aria-selected', String(on));
+    t.tabIndex = on ? 0 : -1;
+    p.hidden = !on;
+    p.classList.remove('on');
+    if (on) { void p.offsetWidth; p.classList.add('on'); }
+  });
+  if (focus) btn.focus();
+}
+tabs.forEach((t, i) => {
+  t.addEventListener('click', () => selectTab(t));
+  t.addEventListener('keydown', e => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    if (step) { e.preventDefault(); selectTab(tabs[(i + step + tabs.length) % tabs.length], true); }
+    else if (e.key === 'Home') { e.preventDefault(); selectTab(tabs[0], true); }
+    else if (e.key === 'End') { e.preventDefault(); selectTab(tabs[tabs.length - 1], true); }
+  });
+});
+
+/* ---------- KPI count-up ---------- */
+const fmt = { int: v => Math.round(v).toLocaleString('en-US'), dec: v => v.toFixed(2), dec1: v => v.toFixed(1) };
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const end = +el.dataset.count, f = fmt[el.dataset.fmt], t0 = performance.now();
+    (function tick(t) { const p = Math.min(1, (t - t0) / 1200); el.textContent = f(end * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(tick); })(t0);
+  });
+}
+</script>
+</body>
+</html>
